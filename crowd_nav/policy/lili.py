@@ -3,140 +3,16 @@ import torch.nn as nn
 from torch.nn.functional import softmax
 import logging
 from crowd_nav.policy.cadrl import mlp
-from crowd_nav.policy.multi_human_rl import MultiHumanRL
-from copy import deepcopy
-import numpy as np
-
-
-# class LiliSAC(nn.Module): 
-#     """
-#     Line by line adaptation of LILI's SAC algorithm - Annie, et. al 2020
-#     """
-
-#     def __init__(
-#         self,
-#         policy,
-#         Qs,
-#         pool,
-#         cell_num,  #State size, should be 4
-#         plotter=None,
-#         action_space=81, # Pass via env?
-#         lr=3e-4,
-#         reward_scale=1.0,
-#         target_entropy="auto",
-#         discount=0.99,
-#         tau=5e-3,
-#         target_update_interval=1,
-#         action_prior="uniform",
-#         reparameterize=False,
-
-
-#         latent_dim=8, # may need to change
-#         encoder_size=(128,128),
-#         decoder_size=(128,128),
-
-#         encode_obs_act=True,
-#         encode_rew=True,
-#         encode_next_obs=False,
-
-#         recon_rew=True,
-#         recon_next_obs=False,
-#         continuous=True,
-
-#         pretrain_iters=0,
-#         per_task_batch_size=8,
-#         episode_length=50,
-
-#         save_full_state=False,
-#         **kwargs,
-
-#         ):
-#         """
-#         Args:
-#             policy: A policy function approximator.
-#             initial_exploration_policy: ('Policy'): A policy that we use
-#                 for initial exploration which is not trained by the algorithm.
-#             Qs: Q-function approximators. The min of these
-#                 approximators will be used. Usage of at least two Q-functions
-#                 improves performance by reducing overestimation bias.
-#             pool (`PoolBase`): Replay pool to add gathered samples to.
-#             plotter (`QFPolicyPlotter`): Plotter instance to be used for
-#                 visualizing Q-function during training.
-#             lr (`float`): Learning rate used for the function approximators.
-#             discount (`float`): Discount factor for Q-function updates.
-#             tau (`float`): Soft value function target update weight.
-#             target_update_interval ('int'): Frequency at which target network
-#                 updates occur in iterations.
-#             reparameterize ('bool'): If True, we use a gradient estimator for
-#                 the policy derived using the reparameterization trick. We use
-#                 a likelihood ratio based estimator otherwise.
-#         """
-
-#         # super(SAC, self).__init__(**kwargs) # TODO: Implement train and eval!
-
-#         self._policy = policy
-
-#         self._Qs = Qs
-#         self._Q_targets = tuple(deepcopy(Q) for Q in Qs)
-
-#         self._pool = pool
-#         self._plotter = plotter
-
-#         self._policy_lr = lr
-#         self._Q_lr = lr
-
-#         self._reward_scale = reward_scale
-#         self._target_entropy = (
-#             -action_space  # TODO: Possible source of error? Multiply by n_humans
-#             if target_entropy == 'auto'
-#             else target_entropy)
-
-#         self._state_dim = cell_num
-#         self._action_dim = action_space
-#         self._latent_dim = latent_dim
-#         self._pretrain_iters = pretrain_iters
-#         self._encoder_size = encoder_size
-#         self._decoder_size = decoder_size
-
-#         self._encode_obs_act = encode_obs_act
-#         self._encode_rew = encode_rew
-#         self._encode_next_obs = encode_next_obs
-#         self._recon_rew = recon_rew
-#         self._recon_next_obs = recon_next_obs
-#         self._continuous = continuous
-
-#         self._episode_length = episode_length
-#         self._per_task_batch_size = per_task_batch_size
-
-#         self._encoder_optimizer = torch.optim.Adam(lr=self._Q_lr) # Q_encoder_optimizer'
-
-#         self._decoder_optimizer = torch.optim.Adam(lr=1e-3)  # decoder_optimizer
-
-#         self._discount = discount
-#         self._tau = tau
-#         self._target_update_interval = target_update_interval
-#         self._action_prior = action_prior
-
-#         self._reparameterize = reparameterize
-
-#         self._save_full_state = save_full_state
-
-#         self._build()
-        
-#     def _build(self):
-#         super(SAC, self)._build()
-
-#         self._init_encoder_update()
-#         self._init_actor_update()
-#         self._init_critic_update()
-#         self._init_diagnostics_ops()
-
-class QNetwork(nn.Module):
-    def __init__(self, input_dim, self_action_size, self_state_dim, phi_e_dims, psi_h_dims, attention_dims, with_global_state,
+from crowd_nav.policy.multi_human_rl import MultiHumanRL2
+# TODO: May need to make new CADRL.py to accomodate new VNetwork params
+# TODO: May need to make this VNetwork to accomodate SARL and then modify LILI Q to V network
+class VNetwork(nn.Module):
+    def __init__(self, input_dim, self_action_space, self_state_dim, phi_e_dims, psi_h_dims, attention_dims, with_global_state,
                  cell_size, cell_num,
                  buffer_output_dim, encoder_dims, decoder_dims, Q_dims):
         super().__init__()
-        self.action_dim = self_action_size
+        self.action_dim = len(self_action_space)
+        print(f'in lili.py: self_action_space: {self_action_space.shape}')
         self.self_state_dim = self_state_dim
         self.global_state_dim = phi_e_dims[-1]
         self.phi_e = mlp(input_dim, phi_e_dims, last_relu=True) # mlp1 = phi_e
@@ -209,24 +85,28 @@ class QNetwork(nn.Module):
         return Q
 
 
-class SARL(MultiHumanRL):
+class LiliSARL(MultiHumanRL2):
     def __init__(self):
         super().__init__()
-        self.name = 'SARL'
+        self.name = 'LiliSARL'
 
     def configure(self, config):
         self.set_common_parameters(config)
-        mlp1_dims = [int(x) for x in config.get('sarl', 'mlp1_dims').split(', ')]
-        mlp2_dims = [int(x) for x in config.get('sarl', 'mlp2_dims').split(', ')]
-        mlp3_dims = [int(x) for x in config.get('sarl', 'mlp3_dims').split(', ')]
-        attention_dims = [int(x) for x in config.get('sarl', 'attention_dims').split(', ')]
-        self.with_om = config.getboolean('sarl', 'with_om')
-        with_global_state = config.getboolean('sarl', 'with_global_state')
-        self.model = ValueNetwork(self.input_dim(), self.self_state_dim, mlp1_dims, mlp2_dims, mlp3_dims,
-                                  attention_dims, with_global_state, self.cell_size, self.cell_num)
-        self.multiagent_training = config.getboolean('sarl', 'multiagent_training')
+        phi_e_dims = [int(x) for x in config.get('lili-sarl', 'phi_e_dims').split(', ')]
+        psi_h_dims = [int(x) for x in config.get('lili-sarl', 'psi_h_dims').split(', ')]
+        Q_dims = [int(x) for x in config.get('lili-sarl', 'Q_dims').split(', ')]
+        buffer_output_dim = [int(x) for x in config.get('lili-sarl', 'latent_rep_dims').split(', ')]
+        encoder_dims = [int(x) for x in config.get('lili-sarl', 'encoder_dims').split(', ')]
+        decoder_dims = [int(x) for x in config.get('lili-sarl', 'decoder_dims').split(', ')]
+        attention_dims = [int(x) for x in config.get('lili-sarl', 'attention_dims').split(', ')]
+        self.with_om = config.getboolean('lili-sarl', 'with_om')
+        with_global_state = config.getboolean('lili-sarl', 'with_global_state')
+        self.model = VNetwork(self.input_dim(), self.action_space, self.self_state_dim, phi_e_dims, psi_h_dims,
+                                  attention_dims, with_global_state, self.cell_size, self.cell_num, 
+                                  buffer_output_dim, encoder_dims, decoder_dims, Q_dims)
+        self.multiagent_training = config.getboolean('lili-sarl', 'multiagent_training')
         if self.with_om:
-            self.name = 'OM-SARL'
+            self.name = 'OM-LILI-SARL'
         logging.info('Policy: {} {} global state'.format(self.name, 'w/' if with_global_state else 'w/o'))
 
     def get_attention_weights(self):
