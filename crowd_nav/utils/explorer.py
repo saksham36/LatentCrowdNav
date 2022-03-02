@@ -157,6 +157,7 @@ class LiliExplorer(object):
         cumulative_rewards = []
         collision_cases = []
         timeout_cases = []
+        # prev_traj = torch.zeros(1,self.expanded_state_size * (self.env.human_num*13 + 2+1+1))
         prev_traj = None
         for i in range(k):
             ob = self.env.reset()
@@ -167,7 +168,7 @@ class LiliExplorer(object):
             dones  = []
             while not done:
                 
-                action = self.robot.act(ob)
+                action = self.robot.act(ob, prev_traj)
                 ob, reward, done, info = self.env.step(action)
                 states.append(self.robot.policy.last_state)
                 actions.append(action)

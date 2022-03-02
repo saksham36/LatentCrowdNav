@@ -120,7 +120,7 @@ class LiliTrainer(object):
                 Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values)
                 rep_loss = self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
                            + 0.05* self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
-                Q_loss.backward()
+                Q_loss.backward(retain_graph=True)
                 rep_loss.backward()
            
                 self.Q_optimizer.step()

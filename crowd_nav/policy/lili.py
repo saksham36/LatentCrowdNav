@@ -17,13 +17,10 @@ class VNetwork(nn.Module):
         self.input_dim = input_dim
         self.num_humans = num_humans
         self.num_actions = self_action_space
-        print(f'in lili.py: self_action_space: {self_action_space}')
         self.self_state_dim = self_state_dim
         self.global_state_dim = phi_e_dims[-1]
         self.phi_e = mlp(input_dim, phi_e_dims, last_relu=True) # mlp1 = phi_e
-        print(f'In lili.py input_dim {input_dim}')
         self.psi_h = mlp(phi_e_dims[-1], psi_h_dims)  # mlp2 = psi_h
-        print(f'In lili.py self.psi_h {phi_e_dims[-1], psi_h_dims}')
         self.with_global_state = with_global_state
         if with_global_state:
             self.attention = mlp(phi_e_dims[-1] * 2, attention_dims)  #  psi_alpha
@@ -53,7 +50,6 @@ class VNetwork(nn.Module):
         :return: # TODO: Verify H is in config file
         """
         size = state.shape
-        print(f'In lili: {size}')
         self_state = state[:, 0, :self.self_state_dim]
         phi_e_output = self.phi_e(state.view((-1, size[2])))
         psi_h_output = self.psi_h(phi_e_output)
