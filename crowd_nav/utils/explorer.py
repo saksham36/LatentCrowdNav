@@ -124,6 +124,7 @@ class Explorer(object):
             # if human_num != 5:
             #     padding = torch.zeros((5 - human_num, feature_size))
             #     state = torch.cat([state, padding])
+            
             self.memory.push((state, value))
 
 
@@ -167,8 +168,10 @@ class LiliExplorer(object):
             rewards = []
             dones  = []
             while not done:
-                
-                action = self.robot.act(ob, prev_traj)
+                if self.robot.policy.name == 'LiliSARL':
+                    action = self.robot.act(ob, prev_traj)
+                else:
+                    action = self.robot.act(ob)
                 ob, reward, done, info = self.env.step(action)
                 states.append(self.robot.policy.last_state)
                 actions.append(action)

@@ -50,6 +50,9 @@ class VNetwork(nn.Module):
         :return: # TODO: Verify H is in config file
         """
         size = state.shape
+        if prev_traj is None:
+            prev_traj = torch.zeros(size[0], self.hist, state.shape[1] * state.shape[2] +2 + 2)
+        
         self_state = state[:, 0, :self.self_state_dim]
         phi_e_output = self.phi_e(state.view((-1, size[2])))
         psi_h_output = self.psi_h(phi_e_output)
@@ -126,15 +129,10 @@ class LiliSARL(MultiHumanRL):
         prev_traj: (batch_size, H, (|S|+|A|+2) =>(state, action, reward, done)
 
         """
-        print(50*"#")
-        print(f'In lili: Yipeee kah ey')
-        print(50*"#")
-        print((f'self.phase: {self.phase}'))
         if self.phase is None or self.device is None:
             raise AttributeError('Phase, device attributes have to be set!')
         if self.phase == 'train' and self.epsilon is None:
             raise AttributeError('Epsilon attribute has to be set in training phase')
-
         if self.reach_destination(state):
             return ActionXY(0, 0) if self.kinematics == 'holonomic' else ActionRot(0, 0)
         if self.action_space is None:
@@ -145,13 +143,13 @@ class LiliSARL(MultiHumanRL):
         if self.phase == 'train' and probability < self.epsilon:
             max_action = self.action_space[np.random.choice(len(self.action_space))]
         else:
-            joint_state = torch.cat([self.self_state]+ [human_state for human_state in state.human_state], dim=0).to(self.device)
+            joint_state = torch.cat([torch.Tensor([state.self_state + human_state]).to(self.device)
+                                  for human_state in state.human_states], dim=0)
+            
             rotated_batch_input = self.rotate(joint_state).unsqueeze(0)
-            size = state.shape
-            print("HIHIHI")
-            import pdb;pdb.set_trace()
-            Q, pred_traj = self.model(rotated_batch_input, prev_traj).data
-            max_action = torch.argmax(Q, dim=1)
+            
+            Q, pred_traj = self.model(rotated_batch_input, prev_traj)
+            max_action = self.action_space[torch.argmax(Q, dim=1)]
 
         if self.phase == 'train':
             self.last_state = self.transform(state)
@@ -159,7 +157,6 @@ class LiliSARL(MultiHumanRL):
         return max_action
 
     def compute_reward(self, nav, humans):
-        print(f'In lili: reward func')
         # collision detection
         dmin = float('inf')
         collision = False

@@ -137,7 +137,7 @@ class LiliTrainer(object):
         return average_epoch_Q_loss, average_epoch_rep_loss,
 
     def optimize_batch(self, num_batches):
-        if self.optimizer is None:
+        if self.Q_optimizer is None or self.enc_optimizer is None or self.dec_optimizer is None:
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
@@ -168,7 +168,7 @@ class LiliTrainer(object):
             rep_loss = self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
                     + 0.05* self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
                 
-            Q_loss.backward()
+            Q_loss.backward(retain_graph=True)
             rep_loss.backward()
            
             self.Q_optimizer.step()

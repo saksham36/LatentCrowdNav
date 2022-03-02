@@ -104,8 +104,6 @@ def main():
     # configure trainer and explorer
     memory = ReplayMemory(capacity)
     model = policy.get_model()
-    print(f'in lili_train: model: {model}')
-    # import pdb; pdb.set_trace()
     batch_size = train_config.getint('trainer', 'batch_size')
     trainer = LiliTrainer(model, memory, device, batch_size)
     explorer = LiliExplorer(env, robot, device, memory, policy.gamma, target_policy=policy)

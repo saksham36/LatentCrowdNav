@@ -78,8 +78,10 @@ class SARL(MultiHumanRL):
         attention_dims = [int(x) for x in config.get('sarl', 'attention_dims').split(', ')]
         self.with_om = config.getboolean('sarl', 'with_om')
         with_global_state = config.getboolean('sarl', 'with_global_state')
+        print(f'YOYO: {self.input_dim()}')
         self.model = ValueNetwork(self.input_dim(), self.self_state_dim, mlp1_dims, mlp2_dims, mlp3_dims,
                                   attention_dims, with_global_state, self.cell_size, self.cell_num)
+        print(self.model)
         self.multiagent_training = config.getboolean('sarl', 'multiagent_training')
         if self.with_om:
             self.name = 'OM-SARL'
