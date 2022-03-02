@@ -110,6 +110,7 @@ def main():
         rl_weight_file = os.path.join(args.output_dir, 'resumed_rl_model.pth')
         logging.info('Load reinforcement learning trained weights. Resume training')
     elif os.path.exists(il_weight_file):
+        logging.info('Beginning to load imitation learning trained weights')
         model.load_state_dict(torch.load(il_weight_file))
         logging.info('Load imitation learning trained weights.')
     else:
@@ -118,6 +119,7 @@ def main():
         il_epochs = train_config.getint('imitation_learning', 'il_epochs')
         il_learning_rate = train_config.getfloat('imitation_learning', 'il_learning_rate')
         trainer.set_learning_rate(il_learning_rate)
+        
         if robot.visible:
             safety_space = 0
         else:
@@ -132,7 +134,6 @@ def main():
         logging.info('Finish imitation learning. Weights saved.')
         logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
     explorer.update_target_model(model)
-
     # reinforcement learning
     policy.set_env(env)
     robot.set_policy(policy)
@@ -156,11 +157,16 @@ def main():
 
         # evaluate the model
         if episode % evaluation_interval == 0:
-            explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-
+            logging.info('Evaluating RL episode')
+            explorer.run_k_episodes(1, 'val', episode=episode) # TODO: DELETE THIS AND UNCOMMENT BELOW
+            # explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+            logging.info('Finished Evaluating RL episode')
         # sample k episodes into memory and optimize over the generated memory
+        logging.info('Sample k episodes for RL')
         explorer.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode)
+        logging.info('Begin optimizing batch')
         trainer.optimize_batch(train_batches)
+        logging.info('Finished optimizing batch')
         episode += 1
 
         if episode % target_update_interval == 0:

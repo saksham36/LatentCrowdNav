@@ -8,9 +8,9 @@ import torch
 import gym
 import git
 from crowd_sim.envs.utils.robot import Robot
-from crowd_nav.utils.trainer import Trainer
+from crowd_nav.utils.trainer import LiliTrainer
 from crowd_nav.utils.memory import ReplayMemory
-from crowd_nav.utils.explorer import Explorer
+from crowd_nav.utils.explorer import LiliExplorer
 from crowd_nav.policy.policy_factory import policy_factory
 
 
@@ -59,16 +59,13 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() and args.gpu else "cpu")
     logging.info('Using device: %s', device)
 
-    # configure policy
-    policy = policy_factory[args.policy]()
-    if not policy.trainable:
-        parser.error('Policy has to be trainable')
+    
     if args.policy_config is None:
         parser.error('Policy config has to be specified for a trainable network')
     policy_config = configparser.RawConfigParser()
     policy_config.read(args.policy_config)
-    policy.configure(policy_config)
-    policy.set_device(device)
+    speed_samples = policy_config.getint('action_space', 'speed_samples')
+    rotation_samples = policy_config.getint('action_space', 'rotation_samples')
 
     # configure environment
     env_config = configparser.RawConfigParser()
@@ -77,6 +74,14 @@ def main():
     env.configure(env_config)
     robot = Robot(env_config, 'robot')
     env.set_robot(robot)
+    H = int(env.time_limit//env.time_step)
+    # configure policy
+    policy = policy_factory[args.policy](H, env.human_num, speed_samples * rotation_samples + 1)
+    if not policy.trainable:
+        parser.error('Policy has to be trainable')
+    policy.configure(policy_config)
+    policy.set_device(device)
+
 
     # read training parameters
     if args.train_config is None:
@@ -84,6 +89,7 @@ def main():
     train_config = configparser.RawConfigParser()
     train_config.read(args.train_config)
     rl_learning_rate = train_config.getfloat('train', 'rl_learning_rate')
+    dec_learning_rate = train_config.getfloat('train', 'dec_learning_rate')
     train_batches = train_config.getint('train', 'train_batches')
     train_episodes = train_config.getint('train', 'train_episodes')
     sample_episodes = train_config.getint('train', 'sample_episodes')
@@ -98,9 +104,11 @@ def main():
     # configure trainer and explorer
     memory = ReplayMemory(capacity)
     model = policy.get_model()
+    print(f'in lili_train: model: {model}')
+    # import pdb; pdb.set_trace()
     batch_size = train_config.getint('trainer', 'batch_size')
-    trainer = Trainer(model, memory, device, batch_size)
-    explorer = Explorer(env, robot, device, memory, policy.gamma, target_policy=policy)
+    trainer = LiliTrainer(model, memory, device, batch_size)
+    explorer = LiliExplorer(env, robot, device, memory, policy.gamma, target_policy=policy)
 
     # imitation learning
     if args.resume:
@@ -137,7 +145,7 @@ def main():
     policy.set_env(env)
     robot.set_policy(policy)
     robot.print_info()
-    trainer.set_learning_rate(rl_learning_rate)
+    trainer.set_learning_rate(rl_learning_rate, dec_learning_rate)
     # fill the memory pool with some RL experience
     if args.resume:
         robot.policy.set_epsilon(epsilon_end)
