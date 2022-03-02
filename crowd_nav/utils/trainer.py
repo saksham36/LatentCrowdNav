@@ -118,8 +118,6 @@ class LiliTrainer(object):
                 
                 Q_hat, traj_hat = self.model(state_inputs, traj_inputs)
                 Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values)
-                import pdb; pdb.set_trace()
-                print(f'in trainer.py: {traj_hat.shape, target_traj.shape}')
                 rep_loss = self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
                            + 0.05* self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
                 Q_loss.backward()
@@ -146,14 +144,13 @@ class LiliTrainer(object):
         Q_losses = 0
         rep_losses = 0
         for _ in range(num_batches):
-            prev_traj, traj, values = next(iter(self.data_loader))
-            prev_states, prev_actions, prev_rewards = prev_traj
-            target_states, target_actions, target_rewards = traj
-            input_traj = torch.cat([prev_states, prev_rewards], dim=-1)
-            target_traj = torch.cat([target_states, target_rewards], dim=-1)
-
-            state_inputs = Variable(target_states)
-            traj_inputs = Variable(input_traj) # previous traj
+            prev_traj, traj, states, values = next(iter(self.data_loader))
+            target_states = traj[:, :, :self.model.num_humans*self.model.input_dim]
+            target_rewards = traj[:, :, -2].unsqueeze(-1)
+            target_traj = torch.reshape(torch.cat([target_states, target_rewards], dim=-1), (target_states.shape[0], -1))
+            
+            state_inputs = Variable(states)
+            traj_inputs = Variable(prev_traj) # previous traj
             values = Variable(values)
 
             self.Q_optimizer.zero_grad()
@@ -166,10 +163,11 @@ class LiliTrainer(object):
             self.Q_optimizer.zero_grad()
             self.enc_optimizer.zero_grad()
             self.dec_optimizer.zero_grad()
-            Q_hat, traj_hat = self.model(inputs)
-            Q_loss = self.Q_criterion(torch.max(Q_hat,-1), values)
-            rep_loss = self.rep_criterion(traj_hat[:,:-1], target_traj[:,:-1]) \
-                        + 0.05* self.rep_criterion(traj_hat[:,-1:], target_traj[:,-1:])
+            Q_hat, traj_hat = self.model(state_inputs, traj_inputs)
+            Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values)
+            rep_loss = self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
+                    + 0.05* self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
+                
             Q_loss.backward()
             rep_loss.backward()
            
@@ -185,4 +183,4 @@ class LiliTrainer(object):
         logging.debug('Average Q loss : %.2E', average_Q_loss)
         logging.debug('Average Rep loss : %.2E', average_rep_loss)
 
-        return average_loss
+        return average_Q_loss, average_rep_loss

@@ -13,6 +13,7 @@ class VNetwork(nn.Module):
                  cell_size, cell_num,
                  buffer_output_dim, encoder_dims, decoder_dims, Q_dims):
         super().__init__()
+        self.hist = hist
         self.input_dim = input_dim
         self.num_humans = num_humans
         self.num_actions = self_action_space
@@ -31,10 +32,8 @@ class VNetwork(nn.Module):
         self.cell_size = cell_size
         self.cell_num = cell_num
         latent_embedding_dim = buffer_output_dim
-        self.encoder = mlp(hist*(self.num_humans*input_dim+2), encoder_dims + [latent_embedding_dim])
-        self.decoder = mlp(latent_embedding_dim, decoder_dims+[hist*(self.num_humans*input_dim+1)])
-        print(f'Encoder: {self.encoder}')
-        print(f'Decoder; {self.decoder}')
+        self.encoder = mlp(self.hist*(self.num_humans*input_dim+2), encoder_dims + [latent_embedding_dim])
+        self.decoder = mlp(latent_embedding_dim, decoder_dims+[self.hist*(self.num_humans*input_dim+1)])
         # psi_h_dims[-1]: c
         # self.self_state_dim: s
         # latent_embedding_dim: z
