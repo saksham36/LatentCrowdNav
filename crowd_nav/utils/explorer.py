@@ -241,9 +241,9 @@ class LiliExplorer(object):
             expanded_prev_dones = prev_dones+ [True for _ in range(self.expanded_state_size - len(prev_states))]
 
             prev_traj = torch.stack([torch.cat([torch.flatten(self.target_policy.transform(expanded_prev_states[idx]),start_dim=0), 
-                                    torch.Tensor(expanded_prev_actions[idx]), 
-                                    torch.Tensor([expanded_prev_rewards[idx]]),
-                                    torch.Tensor([1 if expanded_prev_dones[idx] == True else 0])], dim=-1) \
+                                    torch.Tensor(expanded_prev_actions[idx]).to(self.device), 
+                                    torch.Tensor([expanded_prev_rewards[idx]]).to(self.device),
+                                    torch.Tensor([1 if expanded_prev_dones[idx] == True else 0])], dim=-1).to(self.device) \
                                  for idx in range(self.expanded_state_size)])
 
             expanded_states = states + [states[-1] for _ in range(self.expanded_state_size - len(states))]
@@ -255,9 +255,9 @@ class LiliExplorer(object):
             expanded_dones = dones+ [True for _ in range(self.expanded_state_size - len(states))]
   
             traj = torch.stack([torch.cat([torch.flatten(self.target_policy.transform(expanded_states[idx]),start_dim=0), 
-                                    torch.Tensor(expanded_actions[idx]), 
-                                    torch.Tensor([expanded_rewards[idx]]),
-                                    torch.Tensor([1 if expanded_dones[idx] == True else 0])], dim=-1) \
+                                    torch.Tensor(expanded_actions[idx]).to(self.device), 
+                                    torch.Tensor([expanded_rewards[idx]]).to(self.device),
+                                    torch.Tensor([1 if expanded_dones[idx] == True else 0])], dim=-1).to(self.device) \
                                  for idx in range(self.expanded_state_size)])
                                  
         for i, state in enumerate(states):
