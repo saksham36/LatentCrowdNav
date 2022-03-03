@@ -3,7 +3,7 @@ import copy
 import torch
 from crowd_sim.envs.utils.info import *
 from crowd_sim.envs.utils.action import ActionRot, ActionXY
-
+from tqdm import tqdm
 class Explorer(object):
     def __init__(self, env, robot, device, memory=None, gamma=None, target_policy=None):
         self.env = env
@@ -32,7 +32,7 @@ class Explorer(object):
         cumulative_rewards = []
         collision_cases = []
         timeout_cases = []
-        for i in range(k):
+        for i in tqdm(range(k)):
             ob = self.env.reset()
             done = False
             states = []
@@ -160,7 +160,7 @@ class LiliExplorer(object):
         timeout_cases = []
         # prev_traj = torch.zeros(1,self.expanded_state_size * (self.env.human_num*13 + 2+1+1))
         prev_traj = None
-        for i in range(k):
+        for i in tqdm(range(k)):
             ob = self.env.reset()
             done = False
             states = []
