@@ -16,6 +16,7 @@ class Trainer(object):
         self.criterion = nn.MSELoss().to(device)
         self.memory = memory
         self.data_loader = None
+        self.data_loader_tq = None
         self.batch_size = batch_size
         self.optimizer = None
 
@@ -26,14 +27,14 @@ class Trainer(object):
     def optimize_epoch(self, num_epochs):
         if self.optimizer is None:
             raise ValueError('Learning rate is not set!')
-        if self.data_loader is None:
+        if self.data_loader_tq is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
-            pbar = tqdm(enumerate(self.data_loader))
+            self.data_loader_tq = tqdm(enumerate(self.data_loader))
         average_epoch_loss = 0
         for epoch in range(num_epochs):
             epoch_loss = 0
-            for data in pbar:
-                inputs, values = data
+            for data in self.data_loader_tq:
+                inputs, values = data[1]
                 inputs = Variable(inputs)
                 values = Variable(values)
                 # TODO: May need to add other loss
@@ -54,10 +55,10 @@ class Trainer(object):
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
-            pbar = tqdm(enumerate(self.data_loader))
+            self.data_loader_tq = tqdm(enumerate(self.data_loader))
         losses = 0
         for _ in range(num_batches):
-            inputs, values = next(iter(pbar))
+            inputs, values = next(iter(self.data_loader_tq))
             inputs = Variable(inputs)
             values = Variable(values)
             # TODO: May need to add other loss
@@ -84,6 +85,7 @@ class LiliTrainer(object):
         self.rep_criterion = nn.MSELoss().to(device)
         self.memory = memory
         self.data_loader = None
+        self.data_loader_tq = None
         self.batch_size = batch_size
         self.optimizer = None
 
@@ -99,15 +101,15 @@ class LiliTrainer(object):
     def optimize_epoch(self, num_epochs):
         if self.Q_optimizer is None or self.enc_optimizer is None or self.dec_optimizer is None:
             raise ValueError('Learning rate is not set!')
-        if self.data_loader is None:
+        if self.data_loader_tq is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
-            pbar = tqdm(enumerate(self.data_loader))
+            self.data_loader_tq = tqdm(enumerate(self.data_loader))
         average_epoch_loss = 0
         for epoch in range(num_epochs):
             epoch_Q_loss = 0
             epoch_rep_loss = 0
-            for data in pbar:  # (prev_traj, traj, values) 
-                prev_traj, traj, states, values = data
+            for data in self.data_loader_tq:  # (prev_traj, traj, values) 
+                prev_traj, traj, states, values = data[1]
                 target_states = traj[:, :, :self.model.num_humans*self.model.input_dim]
                 target_rewards = traj[:, :, -2].unsqueeze(-1)
                 target_traj = torch.reshape(torch.cat([target_states, target_rewards], dim=-1), (target_states.shape[0], -1))
@@ -143,13 +145,17 @@ class LiliTrainer(object):
     def optimize_batch(self, num_batches):
         if self.Q_optimizer is None or self.enc_optimizer is None or self.dec_optimizer is None:
             raise ValueError('Learning rate is not set!')
-        if self.data_loader is None:
+        if self.data_loader_tq is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
-            pbar = tqdm(enumerate(self.data_loader))
+            self.data_loader_tq = tqdm(enumerate(self.data_loader))
         Q_losses = 0
         rep_losses = 0
         for _ in range(num_batches):
-            prev_traj, traj, states, values = next(iter(pbar))
+            try:
+                prev_traj, traj, states, values = next(iter(self.data_loader_tq))
+            except StopIteration:    #catching the exception
+                logging.info('Dataloader has no data left in buffer')
+                break
             target_states = traj[:, :, :self.model.num_humans*self.model.input_dim]
             target_rewards = traj[:, :, -2].unsqueeze(-1)
             target_traj = torch.reshape(torch.cat([target_states, target_rewards], dim=-1), (target_states.shape[0], -1))
