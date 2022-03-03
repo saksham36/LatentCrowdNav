@@ -161,7 +161,7 @@ class LiliExplorer(object):
         # prev_traj = torch.zeros(1,self.expanded_state_size * (self.env.human_num*13 + 2+1+1))
         prev_traj = None
         for i in tqdm(range(k)):
-            ob = self.env.reset()
+            ob = self.env.reset(phase=phase)
             done = False
             states = []
             actions = []
@@ -169,9 +169,9 @@ class LiliExplorer(object):
             dones  = []
             while not done:
                 if self.robot.policy.name == 'LiliSARL':
-                    action = self.robot.act(ob, prev_traj)
+                    action = self.robot.act(ob.to(self.device), prev_traj.to(self.device))
                 else:
-                    action = self.robot.act(ob)
+                    action = self.robot.act(ob.to(self.device))
                 ob, reward, done, info = self.env.step(action)
                 states.append(self.robot.policy.last_state)
                 actions.append(action)
