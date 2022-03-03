@@ -28,7 +28,7 @@ class Trainer(object):
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
-            pbar = tqdm(enumerate(self.data_loader, total=len(self.data_loader)))
+            pbar = tqdm(enumerate(self.data_loader))
         average_epoch_loss = 0
         for epoch in range(num_epochs):
             epoch_loss = 0
@@ -54,7 +54,7 @@ class Trainer(object):
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
-            pbar = tqdm(enumerate(self.data_loader, total=len(self.data_loader)))
+            pbar = tqdm(enumerate(self.data_loader))
         losses = 0
         for _ in range(num_batches):
             inputs, values = next(iter(pbar))
@@ -101,7 +101,7 @@ class LiliTrainer(object):
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
-            pbar = tqdm(enumerate(self.data_loader, total=len(self.data_loader)))
+            pbar = tqdm(enumerate(self.data_loader))
         average_epoch_loss = 0
         for epoch in range(num_epochs):
             epoch_Q_loss = 0
@@ -145,7 +145,7 @@ class LiliTrainer(object):
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
-            pbar = tqdm(enumerate(self.data_loader, total=len(self.data_loader)))
+            pbar = tqdm(enumerate(self.data_loader))
         Q_losses = 0
         rep_losses = 0
         for _ in range(num_batches):
