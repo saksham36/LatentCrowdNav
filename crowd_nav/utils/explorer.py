@@ -4,6 +4,8 @@ import torch
 from crowd_sim.envs.utils.info import *
 from crowd_sim.envs.utils.action import ActionRot, ActionXY
 from tqdm import tqdm
+import time
+
 class Explorer(object):
     def __init__(self, env, robot, device, memory=None, gamma=None, target_policy=None):
         self.env = env
@@ -169,9 +171,9 @@ class LiliExplorer(object):
             dones  = []
             while not done:
                 if self.robot.policy.name == 'LiliSARL':
-                    action = self.robot.act(ob.to(self.device), prev_traj.to(self.device))
+                    action = self.robot.act(ob, prev_traj)
                 else:
-                    action = self.robot.act(ob.to(self.device))
+                    action = self.robot.act(ob)
                 ob, reward, done, info = self.env.step(action)
                 states.append(self.robot.policy.last_state)
                 actions.append(action)
@@ -223,6 +225,7 @@ class LiliExplorer(object):
             logging.info('Timeout cases: ' + ' '.join([str(x) for x in timeout_cases]))
 
     def update_memory(self, prev_traj, traj, imitation_learning=False):
+        tic = time.time()
         if prev_traj is None:
             return # the left most traj is not pushed into memory
         prev_states, prev_actions, prev_rewards, prev_dones= prev_traj
@@ -240,11 +243,11 @@ class LiliExplorer(object):
 
             expanded_prev_dones = prev_dones+ [True for _ in range(self.expanded_state_size - len(prev_states))]
 
-            prev_traj = torch.stack([torch.cat([torch.flatten(self.target_policy.transform(expanded_prev_states[idx]),start_dim=0), 
-                                    torch.Tensor(expanded_prev_actions[idx]).to(self.device), 
-                                    torch.Tensor([expanded_prev_rewards[idx]]).to(self.device),
-                                    torch.Tensor([1 if expanded_prev_dones[idx] == True else 0]).to(self.device)], dim=-1) \
-                                 for idx in range(self.expanded_state_size)]).to(self.device)
+            prev_traj = torch.stack([torch.cat([torch.flatten(self.target_policy.transform(expanded_prev_states[idx]).to('cpu'),start_dim=0), 
+                                    torch.Tensor(expanded_prev_actions[idx], device='cpu'), 
+                                    torch.Tensor([expanded_prev_rewards[idx]], device='cpu'),
+                                    torch.Tensor([1 if expanded_prev_dones[idx] == True else 0], device='cpu')], dim=-1) \
+                                 for idx in range(self.expanded_state_size)])
 
             expanded_states = states + [states[-1] for _ in range(self.expanded_state_size - len(states))]
 
@@ -254,11 +257,11 @@ class LiliExplorer(object):
 
             expanded_dones = dones+ [True for _ in range(self.expanded_state_size - len(states))]
   
-            traj = torch.stack([torch.cat([torch.flatten(self.target_policy.transform(expanded_states[idx]),start_dim=0), 
-                                    torch.Tensor(expanded_actions[idx]).to(self.device), 
-                                    torch.Tensor([expanded_rewards[idx]]).to(self.device),
-                                    torch.Tensor([1 if expanded_dones[idx] == True else 0]).to(self.device)], dim=-1) \
-                                 for idx in range(self.expanded_state_size)]).to(self.device)
+            traj = torch.stack([torch.cat([torch.flatten(self.target_policy.transform(expanded_states[idx]).to('cpu'),start_dim=0), 
+                                    torch.Tensor(expanded_actions[idx], device='cpu'), 
+                                    torch.Tensor([expanded_rewards[idx]], device='cpu'),
+                                    torch.Tensor([1 if expanded_dones[idx] == True else 0], device='cpu')], dim=-1) \
+                                 for idx in range(self.expanded_state_size)])
                                  
         for i, state in enumerate(states):
             reward = rewards[i]
@@ -279,7 +282,8 @@ class LiliExplorer(object):
                     gamma_bar = pow(self.gamma, self.robot.time_step * self.robot.v_pref)
                     q_hat, pred_traj = self.target_model(next_state.unsqueeze(0), prev_traj.unsqueeze(0)).data
                     value = reward + gamma_bar * torch.max(q_hat, -1)
-            value = torch.Tensor([value]).to(self.device)
+            
+            value = torch.Tensor([value]).to('cpu')
 
             # # transform state of different human_num into fixed-size tensor
             # if len(state.size()) == 1:
@@ -290,6 +294,7 @@ class LiliExplorer(object):
             # if human_num != 5:
             #     padding = torch.zeros((5 - human_num, feature_size))
             #     state = torch.cat([state, padding])
+            print(f'Time to upate memory: {time.time()-tic}')
             self.memory.push((prev_traj, traj, state, value))  # value of prev_traj. NOT traj
 
 def average(input_list):

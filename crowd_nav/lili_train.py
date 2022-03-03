@@ -107,7 +107,7 @@ def main():
     batch_size = train_config.getint('trainer', 'batch_size')
     trainer = LiliTrainer(model, memory, device, batch_size)
     explorer = LiliExplorer(env, robot, device, memory, policy.gamma, target_policy=policy)
-
+    logging.info('Beginning Imitation Learning')
     # imitation learning
     if args.resume:
         if not os.path.exists(rl_weight_file):
@@ -135,10 +135,11 @@ def main():
         explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
         trainer.optimize_epoch(il_epochs)
         torch.save(model.state_dict(), il_weight_file)
-        logging.info('Finish imitation learning. Weights saved.')
         logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
-    explorer.update_target_model(model)
 
+    explorer.update_target_model(model)
+    logging.info('Finish imitation learning. Weights saved.')
+    logging.info('Beginning Reinforcement Learning')
     # reinforcement learning
     policy.set_env(env)
     robot.set_policy(policy)

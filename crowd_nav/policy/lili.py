@@ -148,7 +148,7 @@ class LiliSARL(MultiHumanRL):
             
             rotated_batch_input = self.rotate(joint_state).unsqueeze(0)
             
-            Q, pred_traj = self.model(rotated_batch_input, prev_traj)
+            Q, pred_traj = self.model(rotated_batch_input.to(self.device), prev_traj.to(self.device))
             max_action = self.action_space[torch.argmax(Q, dim=1)]
 
         if self.phase == 'train':

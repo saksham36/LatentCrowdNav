@@ -106,6 +106,10 @@ class LiliTrainer(object):
             epoch_rep_loss = 0
             for data in self.data_loader:  # (prev_traj, traj, values) 
                 prev_traj, traj, states, values = data
+                prev_traj.to(self.device)
+                traj.to(self.device)
+                states.to(self.device)
+                values.to(self.device)
                 target_states = traj[:, :, :self.model.num_humans*self.model.input_dim]
                 target_rewards = traj[:, :, -2].unsqueeze(-1)
                 target_traj = torch.reshape(torch.cat([target_states, target_rewards], dim=-1), (target_states.shape[0], -1))
@@ -147,6 +151,10 @@ class LiliTrainer(object):
         rep_losses = 0
         for _ in tqdm(range(num_batches)):
             prev_traj, traj, states, values = next(iter(self.data_loader))
+            prev_traj.to(self.device)
+            traj.to(self.device)
+            states.to(self.device)
+            values.to(self.device)
             target_states = traj[:, :, :self.model.num_humans*self.model.input_dim]
             target_rewards = traj[:, :, -2].unsqueeze(-1)
             target_traj = torch.reshape(torch.cat([target_states, target_rewards], dim=-1), (target_states.shape[0], -1))
