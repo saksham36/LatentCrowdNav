@@ -50,9 +50,6 @@ class VNetwork(nn.Module):
         :return: # TODO: Verify H is in config file
         """
         size = state.shape
-        if prev_traj is None:
-            prev_traj = torch.zeros(size[0], self.hist, state.shape[1] * state.shape[2] +2 + 2)
-        
         self_state = state[:, 0, :self.self_state_dim]
         phi_e_output = self.phi_e(state.view((-1, size[2])))
         psi_h_output = self.psi_h(phi_e_output)
@@ -146,9 +143,12 @@ class LiliSARL(MultiHumanRL):
             joint_state = torch.cat([torch.Tensor([state.self_state + human_state]).to(self.device)
                                   for human_state in state.human_states], dim=0)
             
-            rotated_batch_input = self.rotate(joint_state).unsqueeze(0)
+            rotated_batch_input = self.rotate(joint_state).unsqueeze(0).to(self.device)
             
-            Q, pred_traj = self.model(rotated_batch_input.to(self.device), prev_traj.to(self.device))
+            if prev_traj is None:
+                prev_traj = torch.zeros(rotated_batch_input.shape[0], self.hist, rotated_batch_input.shape[1] * rotated_batch_input.shape[2] +2 + 2, device=self.device)
+            
+            Q, pred_traj = self.model(rotated_batch_input, prev_traj)
             max_action = self.action_space[torch.argmax(Q, dim=1)]
 
         if self.phase == 'train':

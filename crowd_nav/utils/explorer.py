@@ -225,7 +225,7 @@ class LiliExplorer(object):
             logging.info('Timeout cases: ' + ' '.join([str(x) for x in timeout_cases]))
 
     def update_memory(self, prev_traj, traj, imitation_learning=False):
-        tic = time.time()
+        # tic = time.time()
         if prev_traj is None:
             return # the left most traj is not pushed into memory
         prev_states, prev_actions, prev_rewards, prev_dones= prev_traj
@@ -294,7 +294,7 @@ class LiliExplorer(object):
             # if human_num != 5:
             #     padding = torch.zeros((5 - human_num, feature_size))
             #     state = torch.cat([state, padding])
-            print(f'Time to upate memory: {time.time()-tic}')
+            # print(f'Time to upate memory: {time.time()-tic}')
             self.memory.push((prev_traj, traj, state, value))  # value of prev_traj. NOT traj
 
 def average(input_list):

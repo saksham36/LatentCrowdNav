@@ -106,10 +106,12 @@ class LiliTrainer(object):
             epoch_rep_loss = 0
             for data in self.data_loader:  # (prev_traj, traj, values) 
                 prev_traj, traj, states, values = data
-                prev_traj.to(self.device)
-                traj.to(self.device)
-                states.to(self.device)
-                values.to(self.device)
+                prev_traj = prev_traj.to(self.device)
+                traj = traj.to(self.device)
+                states = states.to(self.device)
+                values = values.to(self.device)
+
+                
                 target_states = traj[:, :, :self.model.num_humans*self.model.input_dim]
                 target_rewards = traj[:, :, -2].unsqueeze(-1)
                 target_traj = torch.reshape(torch.cat([target_states, target_rewards], dim=-1), (target_states.shape[0], -1))
@@ -122,7 +124,7 @@ class LiliTrainer(object):
                 self.enc_optimizer.zero_grad()
                 self.dec_optimizer.zero_grad()
                 
-                Q_hat, traj_hat = self.model(state_inputs, traj_inputs)
+                Q_hat, traj_hat = self.model(state_inputs.to(self.device), traj_inputs.to(self.device))
                 Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values)
                 rep_loss = self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
                            + 0.05* self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
@@ -152,9 +154,11 @@ class LiliTrainer(object):
         for _ in tqdm(range(num_batches)):
             prev_traj, traj, states, values = next(iter(self.data_loader))
             prev_traj.to(self.device)
-            traj.to(self.device)
-            states.to(self.device)
-            values.to(self.device)
+            prev_traj = prev_traj.to(self.device)
+            traj = traj.to(self.device)
+            states = states.to(self.device)
+            values = values.to(self.device)
+            
             target_states = traj[:, :, :self.model.num_humans*self.model.input_dim]
             target_rewards = traj[:, :, -2].unsqueeze(-1)
             target_traj = torch.reshape(torch.cat([target_states, target_rewards], dim=-1), (target_states.shape[0], -1))
