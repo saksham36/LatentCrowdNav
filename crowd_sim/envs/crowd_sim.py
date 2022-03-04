@@ -9,7 +9,6 @@ from crowd_sim.envs.utils.human import Human
 from crowd_sim.envs.utils.info import *
 from crowd_sim.envs.utils.utils import point_to_segment_dist
 
-
 class CrowdSim(gym.Env):
     metadata = {'render.modes': ['human']}
 
@@ -50,6 +49,8 @@ class CrowdSim(gym.Env):
 
     def configure(self, config):
         self.config = config
+        self.latent_intent = config.getboolean('env', 'latent_intent', fallback=False)
+        self.latent_prob = config.getfloat('env', 'latent_prob', fallback=0.1)
         self.time_limit = config.getint('env', 'time_limit')
         self.time_step = config.getfloat('env', 'time_step')
         self.randomize_attributes = config.getboolean('env', 'randomize_attributes')
@@ -172,7 +173,13 @@ class CrowdSim(gym.Env):
                     break
             if not collide:
                 break
-        human.set(px, py, -px, -py, 0, 0, 0)
+        if self.latent_intent:
+            if np.random.random() <= self.latent_prob:
+                human.set(px, py, -abs(px), -abs(py), 0, 0, 0)
+            else: 
+                human.set(px, py, -px, -py, 0, 0, 0)
+        else:
+            human.set(px, py, -px, -py, 0, 0, 0)
         return human
 
     def generate_square_crossing_human(self):
@@ -196,6 +203,10 @@ class CrowdSim(gym.Env):
         while True:
             gx = np.random.random() * self.square_width * 0.5 * -sign
             gy = (np.random.random() - 0.5) * self.square_width
+            if self.latent_intent:
+                if np.random.random() <= self.latent_prob:
+                    gx =  -abs(gx),
+                    py = -abs(gy)
             collide = False
             for agent in [self.robot] + self.humans:
                 if norm((gx - agent.gx, gy - agent.gy)) < human.radius + agent.radius + self.discomfort_dist:
