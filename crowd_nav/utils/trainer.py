@@ -87,10 +87,14 @@ class LiliTrainer(object):
 
     def set_learning_rate(self, Q_learning_rate, dec_learning_rate=1e-3):
         logging.info('Current learning rate: %f %f', Q_learning_rate, dec_learning_rate)
-        self.Q_optimizer = optim.Adam([param for param in self.model.phi_e.parameters()] + 
+        if not self.model.lili_flag:
+            self.Q_optimizer = optim.Adam([param for param in self.model.phi_e.parameters()] + 
                                        [param for param in self.model.psi_h.parameters()] + 
                                        [param for param in self.model.attention.parameters()] + 
                                        [param for param in self.model.Q.parameters()], lr=Q_learning_rate)
+        else:
+            self.Q_optimizer = optim.Adam([param for param in self.model.Q.parameters()], lr=Q_learning_rate)
+     
         self.enc_optimizer = optim.Adam(self.model.encoder.parameters(), lr=Q_learning_rate)
         self.dec_optimizer = optim.Adam(self.model.decoder.parameters(), lr=dec_learning_rate)
 
@@ -104,7 +108,7 @@ class LiliTrainer(object):
         for epoch in tqdm(range(num_epochs)):
             epoch_Q_loss = 0
             epoch_rep_loss = 0
-            for data in self.data_loader:  # (prev_traj, traj, values) 
+            for data in self.data_loader:  # (prev_traj, traj, states, values) 
                 prev_traj, traj, states, values = data
                 prev_traj = prev_traj.to(self.device)
                 traj = traj.to(self.device)
@@ -123,11 +127,12 @@ class LiliTrainer(object):
                 self.Q_optimizer.zero_grad()
                 self.enc_optimizer.zero_grad()
                 self.dec_optimizer.zero_grad()
-                
                 Q_hat, traj_hat = self.model(state_inputs.to(self.device), traj_inputs.to(self.device))
                 Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values)
-                rep_loss = self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
-                           + 0.05* self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
+                rep_loss = 0.05* self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
+                           + self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
+                # print(f'Q_loss: {Q_loss}')
+                # print(f'Rep Loss: {rep_loss}')
                 Q_loss.backward(retain_graph=True)
                 rep_loss.backward()
            
@@ -158,7 +163,7 @@ class LiliTrainer(object):
             traj = traj.to(self.device)
             states = states.to(self.device)
             values = values.to(self.device)
-            
+
             target_states = traj[:, :, :self.model.num_humans*self.model.input_dim]
             target_rewards = traj[:, :, -2].unsqueeze(-1)
             target_traj = torch.reshape(torch.cat([target_states, target_rewards], dim=-1), (target_states.shape[0], -1))
@@ -171,16 +176,13 @@ class LiliTrainer(object):
             self.enc_optimizer.zero_grad()
             self.dec_optimizer.zero_grad()
 
-            Q_hat, traj_hat = self.model(state_inputs, traj_inputs)
-            values = Variable(values)
-
             self.Q_optimizer.zero_grad()
             self.enc_optimizer.zero_grad()
             self.dec_optimizer.zero_grad()
             Q_hat, traj_hat = self.model(state_inputs, traj_inputs)
             Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values)
-            rep_loss = self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
-                    + 0.05* self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
+            rep_loss = 0.05* self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
+                    + self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
                 
             Q_loss.backward(retain_graph=True)
             rep_loss.backward()
