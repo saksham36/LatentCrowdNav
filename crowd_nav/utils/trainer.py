@@ -173,11 +173,18 @@ class LiliTrainer(object):
         logging.info('Experience set size: %d/%d', len(self.memory), self.memory.capacity)
         logging.info('Traj Buffer set size: %d/%d', len(self.traj_memory), self.traj_memory.capacity)
         # import pdb; pdb.set_trace()
-        for _ in tqdm(range(num_batches)):
-            try:
-                prev_traj, traj = next(iter(self.traj_data_loader))
-            except Exception as e:
-                print(e)
+        for idx in tqdm(range(num_batches)):
+            c_idx = 0
+            while(True):
+                try:
+                    prev_traj, traj = next(iter(self.traj_data_loader))
+                    break
+                except Exception as e:
+                    # print(e)
+                    c_idx += 1
+                    # print(50*"*")
+                    # print(f'Idx: {idx}')
+                    # print(f'C_Idx: {c_idx}')
             states, values = next(iter(self.data_loader))
 
             prev_traj.to(self.device)
