@@ -287,12 +287,10 @@ class LiliExplorer(object):
                     value = reward
                 else:
                     next_state = states[i + 1]
-                    if next_state is None:
-                        print("LOL")
-                        import pdb; pdb.set_trace()
                     gamma_bar = pow(self.gamma, self.robot.time_step * self.robot.v_pref)
-                    q_hat, pred_traj = self.target_model(next_state.unsqueeze(0), prev_traj.unsqueeze(0)).data
-                    value = reward + gamma_bar * torch.max(q_hat, -1)
+                    self.target_model.eval()
+                    q_hat, pred_traj = self.target_model(next_state.unsqueeze(0).to(self.device), prev_traj.unsqueeze(0).to(self.device))
+                    value = reward + gamma_bar * torch.amax(q_hat.data, -1)
             
             value = torch.Tensor([value]).to('cpu')
 

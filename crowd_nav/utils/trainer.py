@@ -1,4 +1,5 @@
 import logging
+from telnetlib import X3PAD
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
@@ -166,11 +167,17 @@ class LiliTrainer(object):
         if self.data_loader is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True, drop_last=True)
         if self.traj_data_loader is None:
-            self.traj_data_loader = DataLoader(self.traj_memory, self.batch_size, shuffle=True, drop_last=True) 
+            self.traj_data_loader = DataLoader(self.traj_memory, self.batch_size, shuffle=True, drop_last = True) 
         Q_losses = 0
         rep_losses = 0
+        logging.info('Experience set size: %d/%d', len(self.memory), self.memory.capacity)
+        logging.info('Traj Buffer set size: %d/%d', len(self.traj_memory), self.traj_memory.capacity)
+        # import pdb; pdb.set_trace()
         for _ in tqdm(range(num_batches)):
-            prev_traj, traj = next(iter(self.traj_data_loader))
+            try:
+                prev_traj, traj = next(iter(self.traj_data_loader))
+            except Exception as e:
+                print(e)
             states, values = next(iter(self.data_loader))
 
             prev_traj.to(self.device)
