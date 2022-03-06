@@ -151,8 +151,8 @@ class LiliTrainer(object):
 
             average_epoch_Q_loss = epoch_Q_loss / len(self.memory)
             average_epoch_rep_loss = epoch_rep_loss / len(self.memory)
-            logging.debug('Average Q loss in epoch %d: %.2E', epoch, average_epoch_Q_loss)
-            logging.debug('Average Rep loss in epoch %d: %.2E', epoch, average_epoch_rep_loss)
+            logging.info('Average Q loss in epoch %d: %.2E', epoch, average_epoch_Q_loss)
+            logging.info('Average Rep loss in epoch %d: %.2E', epoch, average_epoch_rep_loss)
         return average_epoch_Q_loss, average_epoch_rep_loss,
 
     def optimize_batch(self, num_batches):
@@ -205,7 +205,7 @@ class LiliTrainer(object):
 
         average_Q_loss = Q_losses / num_batches
         average_rep_loss = rep_losses / num_batches
-        logging.debug('Average Q loss : %.2E', average_Q_loss)
-        logging.debug('Average Rep loss : %.2E', average_rep_loss)
+        logging.info('Average Q loss : %.2E', average_Q_loss)
+        logging.info('Average Rep loss : %.2E', average_rep_loss)
 
         return average_Q_loss, average_rep_loss
