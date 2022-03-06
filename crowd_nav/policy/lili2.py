@@ -150,17 +150,23 @@ class LiliSARL2(MultiHumanRL):
         probability = np.random.random()
         if self.phase == 'train' and probability < self.epsilon:
             max_action = self.action_space[np.random.choice(len(self.action_space))]
+            return max_action
+        
+        joint_state = torch.cat([torch.Tensor([state.self_state + human_state]).to(self.device)
+                                for human_state in state.human_states], dim=0)
+        
+        rotated_batch_input = self.rotate(joint_state).unsqueeze(0).to(self.device)
+        
+        if prev_traj is None:
+            prev_traj = torch.zeros(rotated_batch_input.shape[0], self.hist, rotated_batch_input.shape[1] * rotated_batch_input.shape[2] +2 + 2, device=self.device)
+        
+        prev_traj = prev_traj.to(self.device)
+        if self.phase == "val" or self.phase == "test":
+            self.model.eval()
         else:
-            joint_state = torch.cat([torch.Tensor([state.self_state + human_state]).to(self.device)
-                                  for human_state in state.human_states], dim=0)
-            
-            rotated_batch_input = self.rotate(joint_state).unsqueeze(0).to(self.device)
-            
-            if prev_traj is None:
-                prev_traj = torch.zeros(rotated_batch_input.shape[0], self.hist, rotated_batch_input.shape[1] * rotated_batch_input.shape[2] +2 + 2, device=self.device)
-            
-            Q, pred_traj = self.model(rotated_batch_input, prev_traj)
-            max_action = self.action_space[torch.argmax(Q, dim=1)]
+            self.model.train()
+        Q, pred_traj = self.model(rotated_batch_input, prev_traj)
+        max_action = self.action_space[torch.argmax(Q, dim=1)]
 
         if self.phase == 'train':
             self.last_state = self.transform(state)
