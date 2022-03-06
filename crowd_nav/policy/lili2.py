@@ -33,16 +33,13 @@ class VNetwork(nn.Module):
         self.cell_num = cell_num
         latent_embedding_dim = buffer_output_dim
         self.encoder = mlp(self.hist*(self.num_humans*input_dim+2), encoder_dims + [latent_embedding_dim])
-        
-        self.decoder = mlp(attention_dims[-1], decoder_dims+[self.hist*(self.num_humans*input_dim+1)])
+        self.decoder = mlp(psi_h_dims[-1], decoder_dims+[self.hist*(self.num_humans*input_dim+1)])
         # psi_h_dims[-1]: c
         # self.self_state_dim: s
         # latent_embedding_dim: z
         # self.num_actions: a
-        if not lili_flag:
-            Q_input_dims = psi_h_dims[-1] + self.self_state_dim + latent_embedding_dim
-        else:
-            Q_input_dims = self.self_state_dim + latent_embedding_dim
+        Q_input_dims = psi_h_dims[-1] + self.self_state_dim
+        
         self.Q = mlp(Q_input_dims, Q_dims) # mlp3 = Q
         assert Q_dims[-1] == self.num_actions
         self.attention_weights = None
@@ -56,12 +53,14 @@ class VNetwork(nn.Module):
         :param traj: tensor of shape (batch_size, H, (|S|+|A|+2) =>(state, action, reward, done)
         :return: # TODO: Verify H is in config file
         """
+        
         size = state.shape
         self_state = state[:, 0, :self.self_state_dim]
         prev_traj_input = prev_traj[:,:, :size[1]*size[2]+2]
-    
-        state_input = torch.cat([state.view((-1, size[2])), torch.reshape(prev_traj_input, (prev_traj_input.shape[0],-1))], dim=1)
-    
+        
+        state_input = torch.cat([state.view((-1, size[2])), 
+                                torch.tile(torch.reshape(prev_traj_input, (prev_traj_input.shape[0],-1)), (size[1],1))], dim=1)
+
         phi_e_output = self.phi_e(state_input)
         psi_h_output = self.psi_h(phi_e_output)
 
@@ -89,7 +88,7 @@ class VNetwork(nn.Module):
 
         # concatenate agent's state with global weighted humans' state
         joint_state = torch.cat([self_state, weighted_feature], dim=1)
-       
+        
         decoder_output = self.decoder(weighted_feature) # s_hat, r_hat
         Q = self.Q(joint_state)
         # value = torch.max(Q,1)
