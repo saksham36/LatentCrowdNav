@@ -85,16 +85,15 @@ class VNetwork(nn.Module):
             weighted_feature = torch.sum(torch.mul(weights, features), dim=1)  # crowd representation (c)
 
         prev_traj_input = prev_traj[:,:, :size[1]*size[2]+2]
-        logging.info(f'encoder ip: {prev_traj_input.shape}, {torch.reshape(prev_traj_input, (prev_traj_input.shape[0],-1)).shape}')
+    
         latent_rep = self.encoder(torch.reshape(prev_traj_input, (prev_traj_input.shape[0],-1)))
         # concatenate agent's state with global weighted humans' state
-        # import pdb; pdb.set_trace()
+
         if not self.lili_flag:
             joint_state = torch.cat([self_state, weighted_feature, latent_rep], dim=1)
         else:
             joint_state = torch.cat([self_state, latent_rep], dim=1)
         decoder_output = self.decoder(latent_rep) # s_hat, r_hat
-        logging.info(f'Decoder op: {decoder_output.shape}')
         Q = self.Q(joint_state)
         # value = torch.max(Q,1)
         return Q, decoder_output
@@ -167,11 +166,10 @@ class LiliSARL(MultiHumanRL):
             prev_traj = torch.zeros(rotated_batch_input.shape[0], self.hist, rotated_batch_input.shape[1] * rotated_batch_input.shape[2] +2 + 2, device=self.device)
 
         prev_traj = prev_traj.to(self.device)
-        if self.phase == "val" or self.phase == "test":
+        if self.phase in( "val","test", "train_val"):
             self.model.eval()
         else:
             self.model.train()
-        logging.info(f'state: {rotated_batch_input.shape}, traj: {prev_traj.shape}')
         Q, pred_traj = self.model(rotated_batch_input, prev_traj)
         max_action = self.action_space[torch.argmax(Q, dim=1)]
 

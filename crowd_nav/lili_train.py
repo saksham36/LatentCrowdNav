@@ -168,19 +168,13 @@ def main():
         robot.policy.set_epsilon(epsilon)
 
         # evaluate the model
-        if episode % evaluation_interval == 0:
+        if (episode+1) % evaluation_interval == 0:
             logging.info(f'Evaluating model: Batch size: {env.case_size["val"]}')
             explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
 
         # sample k episodes into memory and optimize over the generated memory
-        logging.info('Before k-ep: Memory set size: %d/%d', len(memory), memory.capacity)
-   
-        logging.info('Before k-ep: Traj memoryset size: %d/%d', len(traj_memory), traj_memory.capacity)
-    
-        explorer.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode)
-        logging.info('Before optim_batch: Memory set size: %d/%d', len(memory), memory.capacity)
-   
-        logging.info('Before optim_batch: Traj memoryset size: %d/%d', len(traj_memory), traj_memory.capacity)
+
+        explorer.run_k_episodes(sample_episodes, 'train_val', update_memory=True, episode=episode)
         trainer.optimize_batch(train_batches) 
         episode += 1
 

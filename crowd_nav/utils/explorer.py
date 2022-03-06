@@ -174,10 +174,11 @@ class LiliExplorer(object):
             dones  = []
             while not done:
                 if self.robot.policy.name in ('LiliSARL', 'Lili', 'LiliSARL2'):
-                    try:
-                        action = self.robot.act(ob, self.prev_traj.unsqueeze(0))
-                    except:
-                        import pdb; pdb.set_trace()
+                    # try:
+                    action = self.robot.act(ob, self.prev_traj.unsqueeze(0))
+                    # except Exception as e:
+                    #     print(e)
+                    #     import pdb; pdb.set_trace()
                 else:
                     action = self.robot.act(ob)
                 ob, reward, done, info = self.env.step(action)
@@ -250,31 +251,12 @@ class LiliExplorer(object):
                                  for idx in range(self.expanded_state_size)]) 
             self.prev_traj = traj
             return # the left most traj is not pushed into memory
-        # else:
-        #     import pdb; pdb.set_trace()
 
-        # prev_states = prev_traj[:,:-4]
-        # prev_actions = prev_traj[:, -4:-2] 
-        # prev_rewards = prev_traj[:, -2]
-        # prev_dones = prev_traj[:, -1]
         states, actions, rewards, dones = traj
         if self.traj_memory is None or self.memory is None or self.gamma is None:
             raise ValueError('Memory or gamma value is not set!')
         
         if imitation_learning: 
-            # expanded_prev_states = torch.cat([prev_states, torch.Tensor([1 for _ in range(self.expanded_state_size - len(prev_states))])],dim=1)
-
-            # expanded_prev_rewards = torch.cat([prev_rewards, torch.Tensor([0 for _ in range(self.expanded_state_size - len(prev_states))])],dim=0)
-
-            # expanded_prev_actions = torch.cat([prev_actions, torch.Tensor([self.term_action for _ in range(self.expanded_state_size - len(prev_states))])],dim=1)
-            # expanded_prev_dones = torch.cat([prev_dones, torch.Tensor([True for _ in range(self.expanded_state_size - len(prev_states))])],dim=0)
-            # import pdb; pdb.set_trace()
-            # prev_traj = torch.stack([torch.cat([expanded_prev_states[idx], 
-            #                         expanded_prev_actions[idx].unsqueeze(0).to('cpu'), 
-            #                         expanded_prev_rewards[idx].unsqueeze(0).to('cpu'),
-            #                         expanded_prev_dones[idx].unsqueeze(0).to('cpu'),], device='cpu')], dim=-1) \
-            #                      for idx in range(self.expanded_state_size)])
-
             expanded_states = states + [states[-1] for _ in range(self.expanded_state_size - len(states))]
 
             expanded_rewards = rewards + [0 for _ in range(self.expanded_state_size - len(states))]
@@ -305,6 +287,9 @@ class LiliExplorer(object):
                     value = reward
                 else:
                     next_state = states[i + 1]
+                    if next_state is None:
+                        print("LOL")
+                        import pdb; pdb.set_trace()
                     gamma_bar = pow(self.gamma, self.robot.time_step * self.robot.v_pref)
                     q_hat, pred_traj = self.target_model(next_state.unsqueeze(0), prev_traj.unsqueeze(0)).data
                     value = reward + gamma_bar * torch.max(q_hat, -1)

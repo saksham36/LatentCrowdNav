@@ -59,8 +59,8 @@ class CrowdSim(gym.Env):
         self.discomfort_dist = config.getfloat('reward', 'discomfort_dist')
         self.discomfort_penalty_factor = config.getfloat('reward', 'discomfort_penalty_factor')
         if self.config.get('humans', 'policy') == 'orca':
-            self.case_capacity = {'train': np.iinfo(np.uint32).max - 2000, 'val': 1000, 'test': 1000}
-            self.case_size = {'train': np.iinfo(np.uint32).max - 2000, 'val': config.getint('env', 'val_size'),
+            self.case_capacity = {'train': np.iinfo(np.uint32).max - 2000, 'train_val': np.iinfo(np.uint32).max - 2000,'val': 1000, 'test': 1000}
+            self.case_size = {'train': np.iinfo(np.uint32).max - 2000, 'train_val': np.iinfo(np.uint32).max - 2000, 'val': config.getint('env', 'val_size'),
                               'test': config.getint('env', 'test_size')}
             self.train_val_sim = config.get('sim', 'train_val_sim')
             self.test_sim = config.get('sim', 'test_sim')
@@ -69,7 +69,7 @@ class CrowdSim(gym.Env):
             self.human_num = config.getint('sim', 'human_num')
         else:
             raise NotImplementedError
-        self.case_counter = {'train': 0, 'test': 0, 'val': 0}
+        self.case_counter = {'train': 0, 'test': 0, 'val': 0, 'train_val': 0}
 
         logging.info('human number: {}'.format(self.human_num))
         if self.randomize_attributes:
@@ -266,7 +266,7 @@ class CrowdSim(gym.Env):
         """
         if self.robot is None:
             raise AttributeError('robot has to be set!')
-        assert phase in ['train', 'val', 'test']
+        assert phase in ['train', 'val', 'test', 'train_val']
         if test_case is not None:
             self.case_counter[phase] = test_case
         self.global_time = 0
@@ -281,11 +281,12 @@ class CrowdSim(gym.Env):
             raise NotImplementedError
         else:
             counter_offset = {'train': self.case_capacity['val'] + self.case_capacity['test'],
+                              'train_val': self.case_capacity['val'] + self.case_capacity['test'],
                               'val': 0, 'test': self.case_capacity['val']}
             self.robot.set(0, -self.circle_radius, 0, self.circle_radius, 0, 0, np.pi / 2)
             if self.case_counter[phase] >= 0:
                 np.random.seed(counter_offset[phase] + self.case_counter[phase])
-                if phase in ['train', 'val']:
+                if phase in ['train', 'val', 'train_val']:
                     human_num = self.human_num if self.robot.policy.multiagent_training else 1
                     self.generate_random_human_position(human_num=human_num, rule=self.train_val_sim)
                 else:

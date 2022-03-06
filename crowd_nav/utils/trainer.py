@@ -20,6 +20,7 @@ class Trainer(object):
         self.optimizer = None
 
     def set_learning_rate(self, learning_rate):
+        self.model.train()
         logging.info('Current learning rate: %f', learning_rate)
         self.optimizer = optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9)
 
@@ -58,7 +59,6 @@ class Trainer(object):
             inputs, values = next(iter(self.data_loader))
             inputs = Variable(inputs)
             values = Variable(values)
-            # TODO: May need to add other loss
             self.optimizer.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs, values)
@@ -89,6 +89,7 @@ class LiliTrainer(object):
 
     def set_learning_rate(self, Q_learning_rate, dec_learning_rate=1e-3):
         logging.info('Current learning rate: %f %f', Q_learning_rate, dec_learning_rate)
+        self.model.train()
         if not self.model.lili_flag:
             self.Q_optimizer = optim.Adam([param for param in self.model.phi_e.parameters()] + 
                                        [param for param in self.model.psi_h.parameters()] + 
@@ -101,6 +102,7 @@ class LiliTrainer(object):
         self.dec_optimizer = optim.Adam(self.model.decoder.parameters(), lr=dec_learning_rate)
 
     def optimize_epoch(self, num_epochs):
+        self.model.train()
         if self.Q_optimizer is None or self.enc_optimizer is None or self.dec_optimizer is None:
             raise ValueError('Learning rate is not set!')
         logging.info(f'Memory size: {len(self.memory)}. Traj memory size: {len(self.traj_memory)}')
@@ -135,8 +137,6 @@ class LiliTrainer(object):
                 self.enc_optimizer.zero_grad()
                 self.dec_optimizer.zero_grad()
                 min_size = min(state_inputs.shape[0], traj_inputs.shape[0])
-                if state_inputs.shape[0] != traj_inputs.shape[0]:
-                    logging.info(f"{min_size}")
                 Q_hat, traj_hat = self.model(state_inputs[:min_size, :, :].to(self.device), traj_inputs[:min_size, :, :].to(self.device))
                 Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values[:min_size])
                 rep_loss = 0.05* self.rep_criterion(traj_hat[:min_size,:-self.model.hist], target_traj[:min_size,:-self.model.hist]) \
@@ -160,6 +160,7 @@ class LiliTrainer(object):
         return average_epoch_Q_loss, average_epoch_rep_loss,
 
     def optimize_batch(self, num_batches):
+        self.model.train()
         if self.Q_optimizer is None or self.enc_optimizer is None or self.dec_optimizer is None:
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
@@ -169,7 +170,7 @@ class LiliTrainer(object):
         Q_losses = 0
         rep_losses = 0
         for _ in tqdm(range(num_batches)):
-            prev_traj, traj = prev_traj, traj = next(iter(self.traj_data_loader))
+            prev_traj, traj = next(iter(self.traj_data_loader))
             states, values = next(iter(self.data_loader))
 
             prev_traj.to(self.device)
