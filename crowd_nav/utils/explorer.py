@@ -5,6 +5,7 @@ from crowd_sim.envs.utils.info import *
 from crowd_sim.envs.utils.action import ActionRot, ActionXY
 from tqdm import tqdm
 import time
+import random
 
 class Explorer(object):
     def __init__(self, env, robot, device, memory=None, gamma=None, target_policy=None):
@@ -142,7 +143,8 @@ class LiliExplorer(object):
         self.target_model = None
         self.expanded_state_size = int(self.env.time_limit//self.env.time_step)
         self.term_action = ActionXY(0, 0) if self.robot.kinematics == 'holonomic' else ActionRot(0, 0)
-    
+        self.prev_traj = None
+
     def update_target_model(self, target_model):
         self.target_model = copy.deepcopy(target_model)
 
@@ -161,18 +163,18 @@ class LiliExplorer(object):
         cumulative_rewards = []
         collision_cases = []
         timeout_cases = []
-        # prev_traj = torch.zeros(1,self.expanded_state_size * (self.env.human_num*13 + 2+1+1))
-        prev_traj = None
         for i in tqdm(range(k)):
             ob = self.env.reset(phase=phase)
+            if len(self.traj_memory) > 0:
+                self.prev_traj, _ = random.choice(self.traj_memory)
             done = False
             states = []
             actions = []
             rewards = []
             dones  = []
             while not done:
-                if self.robot.policy.name == 'LiliSARL':
-                    action = self.robot.act(ob, prev_traj)
+                if self.robot.policy.name in ('LiliSARL', 'Lili', 'LiliSARL2'):
+                    action = self.robot.act(ob, self.prev_traj.unsqueeze(0))
                 else:
                     action = self.robot.act(ob)
                 ob, reward, done, info = self.env.step(action)
@@ -201,9 +203,8 @@ class LiliExplorer(object):
             if update_memory:
                 if isinstance(info, ReachGoal) or isinstance(info, Collision):
                     # only add positive(success) or negative(collision) experience in experience set
-                    self.update_memory(prev_traj, (states, actions, rewards, dones), imitation_learning)
-                    prev_traj = (states, actions, rewards, dones)
-
+                    self.update_memory(self.prev_traj, (states, actions, rewards, dones), imitation_learning)
+                    
             cumulative_rewards.append(sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
                                            * reward for t, reward in enumerate(rewards)]))
 
@@ -227,28 +228,49 @@ class LiliExplorer(object):
 
     def update_memory(self, prev_traj, traj, imitation_learning=False):
         # tic = time.time()
+        
         if prev_traj is None:
+            states, actions, rewards, dones = traj
+            if imitation_learning: 
+                expanded_states = states + [states[-1] for _ in range(self.expanded_state_size - len(states))]
+
+                expanded_rewards = rewards + [0 for _ in range(self.expanded_state_size - len(states))]
+
+                expanded_actions = actions + [self.term_action for _ in range(self.expanded_state_size - len(states))]
+
+                expanded_dones = dones+ [True for _ in range(self.expanded_state_size - len(states))]
+  
+                traj = torch.stack([torch.cat([torch.flatten(self.target_policy.transform(expanded_states[idx]).to('cpu'),start_dim=0), 
+                                    torch.Tensor(expanded_actions[idx], device='cpu'), 
+                                    torch.Tensor([expanded_rewards[idx]], device='cpu'),
+                                    torch.Tensor([1 if expanded_dones[idx] == True else 0], device='cpu')], dim=-1) \
+                                 for idx in range(self.expanded_state_size)]) 
+            self.prev_traj = traj
             return # the left most traj is not pushed into memory
-        prev_states, prev_actions, prev_rewards, prev_dones= prev_traj
+        # else:
+        #     import pdb; pdb.set_trace()
+
+        # prev_states = prev_traj[:,:-4]
+        # prev_actions = prev_traj[:, -4:-2] 
+        # prev_rewards = prev_traj[:, -2]
+        # prev_dones = prev_traj[:, -1]
         states, actions, rewards, dones = traj
-       
-        if self.memory is None or self.gamma is None:
+        if self.traj_memory is None or self.memory is None or self.gamma is None:
             raise ValueError('Memory or gamma value is not set!')
         
         if imitation_learning: 
-            expanded_prev_states = prev_states + [prev_states[-1] for _ in range(self.expanded_state_size - len(prev_states))]
+            # expanded_prev_states = torch.cat([prev_states, torch.Tensor([1 for _ in range(self.expanded_state_size - len(prev_states))])],dim=1)
 
-            expanded_prev_rewards = prev_rewards + [0 for _ in range(self.expanded_state_size - len(prev_states))]
+            # expanded_prev_rewards = torch.cat([prev_rewards, torch.Tensor([0 for _ in range(self.expanded_state_size - len(prev_states))])],dim=0)
 
-            expanded_prev_actions = prev_actions + [self.term_action for _ in range(self.expanded_state_size - len(prev_states))]
-
-            expanded_prev_dones = prev_dones+ [True for _ in range(self.expanded_state_size - len(prev_states))]
-
-            prev_traj = torch.stack([torch.cat([torch.flatten(self.target_policy.transform(expanded_prev_states[idx]).to('cpu'),start_dim=0), 
-                                    torch.Tensor(expanded_prev_actions[idx], device='cpu'), 
-                                    torch.Tensor([expanded_prev_rewards[idx]], device='cpu'),
-                                    torch.Tensor([1 if expanded_prev_dones[idx] == True else 0], device='cpu')], dim=-1) \
-                                 for idx in range(self.expanded_state_size)])
+            # expanded_prev_actions = torch.cat([prev_actions, torch.Tensor([self.term_action for _ in range(self.expanded_state_size - len(prev_states))])],dim=1)
+            # expanded_prev_dones = torch.cat([prev_dones, torch.Tensor([True for _ in range(self.expanded_state_size - len(prev_states))])],dim=0)
+            # import pdb; pdb.set_trace()
+            # prev_traj = torch.stack([torch.cat([expanded_prev_states[idx], 
+            #                         expanded_prev_actions[idx].unsqueeze(0).to('cpu'), 
+            #                         expanded_prev_rewards[idx].unsqueeze(0).to('cpu'),
+            #                         expanded_prev_dones[idx].unsqueeze(0).to('cpu'),], device='cpu')], dim=-1) \
+            #                      for idx in range(self.expanded_state_size)])
 
             expanded_states = states + [states[-1] for _ in range(self.expanded_state_size - len(states))]
 
@@ -263,7 +285,7 @@ class LiliExplorer(object):
                                     torch.Tensor([expanded_rewards[idx]], device='cpu'),
                                     torch.Tensor([1 if expanded_dones[idx] == True else 0], device='cpu')], dim=-1) \
                                  for idx in range(self.expanded_state_size)])
-                                 
+                           
         for i, state in enumerate(states):
             reward = rewards[i]
             done = dones[i]
@@ -298,6 +320,7 @@ class LiliExplorer(object):
             # print(f'Time to upate memory: {time.time()-tic}')
             self.memory.push((state, value))  # value of prev_traj. NOT traj
         self.traj_memory.push((prev_traj, traj))
+    
 def average(input_list):
     if input_list:
         return sum(input_list) / len(input_list)

@@ -85,7 +85,7 @@ class LiliTrainer(object):
         self.data_loader = None
         self.traj_data_loader = None
         self.batch_size = batch_size
-        self.optimizer = None
+        self.optimizer = None  
 
     def set_learning_rate(self, Q_learning_rate, dec_learning_rate=1e-3):
         logging.info('Current learning rate: %f %f', Q_learning_rate, dec_learning_rate)
@@ -103,6 +103,7 @@ class LiliTrainer(object):
     def optimize_epoch(self, num_epochs):
         if self.Q_optimizer is None or self.enc_optimizer is None or self.dec_optimizer is None:
             raise ValueError('Learning rate is not set!')
+        logging.info(f'Memory size: {len(self.memory)}. Traj memory size: {len(self.traj_memory)}')
         if self.data_loader is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
         if self.traj_data_loader is None:
@@ -123,6 +124,7 @@ class LiliTrainer(object):
                 
                 target_states = traj[:, :, :self.model.num_humans*self.model.input_dim]
                 target_rewards = traj[:, :, -2].unsqueeze(-1)
+  
                 target_traj = torch.reshape(torch.cat([target_states, target_rewards], dim=-1), (target_states.shape[0], -1))
             
                 state_inputs = Variable(states)
@@ -159,7 +161,9 @@ class LiliTrainer(object):
         if self.Q_optimizer is None or self.enc_optimizer is None or self.dec_optimizer is None:
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
-            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
+            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True, drop_last=True)
+        if self.traj_data_loader is None:
+            self.traj_data_loader = DataLoader(self.traj_memory, self.batch_size, shuffle=True, drop_last=True) 
         Q_losses = 0
         rep_losses = 0
         for _ in tqdm(range(num_batches)):

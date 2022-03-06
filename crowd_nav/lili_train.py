@@ -135,9 +135,13 @@ def main():
         il_policy.safety_space = safety_space
         robot.set_policy(il_policy)
         explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
+        logging.info('Before optim_epoch: Experience set size: %d/%d', len(memory), memory.capacity)
+        logging.info('Before optim_epoch: Traj Buffer set size: %d/%d', len(traj_memory), traj_memory.capacity)
+
         trainer.optimize_epoch(il_epochs)
         torch.save(model.state_dict(), il_weight_file)
         logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
+        logging.info('Traj Buffer set size: %d/%d', len(traj_memory), traj_memory.capacity)
 
     explorer.update_target_model(model)
     logging.info('Finish imitation learning. Weights saved.')
@@ -165,11 +169,19 @@ def main():
 
         # evaluate the model
         if episode % evaluation_interval == 0:
+            logging.info(f'Evaluating model: Batch size: {env.case_size["val"]}')
             explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
 
         # sample k episodes into memory and optimize over the generated memory
+        logging.info('Before k-ep: Memory set size: %d/%d', len(memory), memory.capacity)
+   
+        logging.info('Before k-ep: Traj memoryset size: %d/%d', len(traj_memory), traj_memory.capacity)
+    
         explorer.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode)
-        trainer.optimize_batch(train_batches) # TODO: incorporrate LILI Q Loss in the trainer
+        logging.info('Before optim_batch: Memory set size: %d/%d', len(memory), memory.capacity)
+   
+        logging.info('Before optim_batch: Traj memoryset size: %d/%d', len(traj_memory), traj_memory.capacity)
+        trainer.optimize_batch(train_batches) 
         episode += 1
 
         if episode % target_update_interval == 0:

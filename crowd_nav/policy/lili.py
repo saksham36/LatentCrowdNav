@@ -6,6 +6,7 @@ from crowd_nav.policy.cadrl import mlp
 from crowd_sim.envs.utils.action import ActionRot, ActionXY
 from crowd_nav.policy.multi_human_rl import MultiHumanRL
 import numpy as np
+
 # TODO: May need to make new CADRL.py to accomodate new VNetwork params
 # TODO: May need to make this VNetwork to accomodate SARL and then modify LILI Q to V network
 class VNetwork(nn.Module):
@@ -84,7 +85,7 @@ class VNetwork(nn.Module):
             weighted_feature = torch.sum(torch.mul(weights, features), dim=1)  # crowd representation (c)
 
         prev_traj_input = prev_traj[:,:, :size[1]*size[2]+2]
-        
+        logging.info(f'encoder ip: {prev_traj_input.shape}, {torch.reshape(prev_traj_input, (prev_traj_input.shape[0],-1)).shape}')
         latent_rep = self.encoder(torch.reshape(prev_traj_input, (prev_traj_input.shape[0],-1)))
         # concatenate agent's state with global weighted humans' state
         # import pdb; pdb.set_trace()
@@ -93,6 +94,7 @@ class VNetwork(nn.Module):
         else:
             joint_state = torch.cat([self_state, latent_rep], dim=1)
         decoder_output = self.decoder(latent_rep) # s_hat, r_hat
+        logging.info(f'Decoder op: {decoder_output.shape}')
         Q = self.Q(joint_state)
         # value = torch.max(Q,1)
         return Q, decoder_output
@@ -148,21 +150,30 @@ class LiliSARL(MultiHumanRL):
         if self.action_space is None:
             self.build_action_space(state.self_state.v_pref)
 
+        
+
         occupancy_maps = None
         probability = np.random.random()
         if self.phase == 'train' and probability < self.epsilon:
             max_action = self.action_space[np.random.choice(len(self.action_space))]
+            return max_action
+
+        joint_state = torch.cat([torch.Tensor([state.self_state + human_state]).to(self.device)
+                                for human_state in state.human_states], dim=0)
+        
+        rotated_batch_input = self.rotate(joint_state).unsqueeze(0).to(self.device)
+        
+        if prev_traj is None:
+            prev_traj = torch.zeros(rotated_batch_input.shape[0], self.hist, rotated_batch_input.shape[1] * rotated_batch_input.shape[2] +2 + 2, device=self.device)
+
+        prev_traj = prev_traj.to(self.device)
+        if self.phase == "val" or self.phase == "test":
+            self.model.eval()
         else:
-            joint_state = torch.cat([torch.Tensor([state.self_state + human_state]).to(self.device)
-                                  for human_state in state.human_states], dim=0)
-            
-            rotated_batch_input = self.rotate(joint_state).unsqueeze(0).to(self.device)
-            
-            if prev_traj is None:
-                prev_traj = torch.zeros(rotated_batch_input.shape[0], self.hist, rotated_batch_input.shape[1] * rotated_batch_input.shape[2] +2 + 2, device=self.device)
-            
-            Q, pred_traj = self.model(rotated_batch_input, prev_traj)
-            max_action = self.action_space[torch.argmax(Q, dim=1)]
+            self.model.train()
+        logging.info(f'state: {rotated_batch_input.shape}, traj: {prev_traj.shape}')
+        Q, pred_traj = self.model(rotated_batch_input, prev_traj)
+        max_action = self.action_space[torch.argmax(Q, dim=1)]
 
         if self.phase == 'train':
             self.last_state = self.transform(state)
