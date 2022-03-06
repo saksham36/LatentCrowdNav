@@ -174,7 +174,10 @@ class LiliExplorer(object):
             dones  = []
             while not done:
                 if self.robot.policy.name in ('LiliSARL', 'Lili', 'LiliSARL2'):
-                    action = self.robot.act(ob, self.prev_traj.unsqueeze(0))
+                    try:
+                        action = self.robot.act(ob, self.prev_traj.unsqueeze(0))
+                    except:
+                        import pdb; pdb.set_trace()
                 else:
                     action = self.robot.act(ob)
                 ob, reward, done, info = self.env.step(action)

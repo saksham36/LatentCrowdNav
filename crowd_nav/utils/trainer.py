@@ -135,6 +135,8 @@ class LiliTrainer(object):
                 self.enc_optimizer.zero_grad()
                 self.dec_optimizer.zero_grad()
                 min_size = min(state_inputs.shape[0], traj_inputs.shape[0])
+                if state_inputs.shape[0] != traj_inputs.shape[0]:
+                    logging.info(f"{min_size}")
                 Q_hat, traj_hat = self.model(state_inputs[:min_size, :, :].to(self.device), traj_inputs[:min_size, :, :].to(self.device))
                 Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values[:min_size])
                 rep_loss = 0.05* self.rep_criterion(traj_hat[:min_size,:-self.model.hist], target_traj[:min_size,:-self.model.hist]) \
@@ -192,6 +194,8 @@ class LiliTrainer(object):
             self.enc_optimizer.zero_grad()
             self.dec_optimizer.zero_grad()
             min_size = min(state_inputs.shape[0], traj_inputs.shape[0])
+            if min_size<=1:
+                    logging.info("min_size<= 1!")
             Q_hat, traj_hat = self.model(state_inputs[:min_size, :, :].to(self.device), traj_inputs[:min_size, :, :].to(self.device))
             Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values[:min_size])
             rep_loss = 0.05* self.rep_criterion(traj_hat[:min_size,:-self.model.hist], target_traj[:min_size,:-self.model.hist]) \
