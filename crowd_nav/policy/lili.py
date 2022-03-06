@@ -173,7 +173,7 @@ class LiliSARL(MultiHumanRL):
         Q, pred_traj = self.model(rotated_batch_input, prev_traj)
         max_action = self.action_space[torch.argmax(Q, dim=1)]
 
-        if self.phase == 'train':
+        if self.phase == 'train' or self.phase == 'train_val':
             self.last_state = self.transform(state)
 
         return max_action
