@@ -31,6 +31,7 @@ class VNetwork(nn.Module):
                 self.attention = mlp(phi_e_dims[-1], attention_dims) # psi_alpha
         self.cell_size = cell_size
         self.cell_num = cell_num
+        latent_embedding_dim = buffer_output_dim
         self.encoder = mlp(self.hist*(self.num_humans*input_dim+2), encoder_dims + [latent_embedding_dim])
         
         self.decoder = mlp(attention_dims[-1], decoder_dims+[self.hist*(self.num_humans*input_dim+1)])
