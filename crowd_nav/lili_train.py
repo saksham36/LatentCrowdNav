@@ -103,10 +103,12 @@ def main():
 
     # configure trainer and explorer
     memory = ReplayMemory(capacity)
+    traj_memory = ReplayMemory(capacity)
+
     model = policy.get_model()
     batch_size = train_config.getint('trainer', 'batch_size')
-    trainer = LiliTrainer(model, memory, device, batch_size)
-    explorer = LiliExplorer(env, robot, device, memory, policy.gamma, target_policy=policy)
+    trainer = LiliTrainer(model, memory, traj_memory, device, batch_size)
+    explorer = LiliExplorer(env, robot, device, memory, traj_memory, policy.gamma, target_policy=policy)
     logging.info('Beginning Imitation Learning')
     # imitation learning
     if args.resume:

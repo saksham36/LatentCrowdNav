@@ -131,11 +131,12 @@ class Explorer(object):
 
 
 class LiliExplorer(object):
-    def __init__(self, env, robot, device, memory=None, gamma=None, target_policy=None):
+    def __init__(self, env, robot, device, memory=None, traj_memory=None, gamma=None, target_policy=None):
         self.env = env
         self.robot = robot
         self.device = device
         self.memory = memory
+        self.traj_memory = traj_memory
         self.gamma = gamma
         self.target_policy = target_policy
         self.target_model = None
@@ -295,8 +296,8 @@ class LiliExplorer(object):
             #     padding = torch.zeros((5 - human_num, feature_size))
             #     state = torch.cat([state, padding])
             # print(f'Time to upate memory: {time.time()-tic}')
-            self.memory.push((prev_traj, traj, state, value))  # value of prev_traj. NOT traj
-
+            self.memory.push((state, value))  # value of prev_traj. NOT traj
+        self.traj_memory.push((prev_traj, traj))
 def average(input_list):
     if input_list:
         return sum(input_list) / len(input_list)

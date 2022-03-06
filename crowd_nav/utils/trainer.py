@@ -72,7 +72,7 @@ class Trainer(object):
         return average_loss
 
 class LiliTrainer(object):
-    def __init__(self, model, memory, device, batch_size):
+    def __init__(self, model, memory, traj_memory, device, batch_size):
         """
         Train the trainable model of a policy
         """
@@ -81,7 +81,9 @@ class LiliTrainer(object):
         self.Q_criterion = nn.MSELoss().to(device)
         self.rep_criterion = nn.MSELoss().to(device)
         self.memory = memory
+        self.traj_memory = traj_memory
         self.data_loader = None
+        self.traj_data_loader = None
         self.batch_size = batch_size
         self.optimizer = None
 
@@ -103,13 +105,16 @@ class LiliTrainer(object):
             raise ValueError('Learning rate is not set!')
         if self.data_loader is None:
             self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
-            
+        if self.traj_data_loader is None:
+            self.traj_data_loader = DataLoader(self.traj_memory, self.batch_size, shuffle=True) 
         average_epoch_loss = 0
         for epoch in tqdm(range(num_epochs)):
             epoch_Q_loss = 0
             epoch_rep_loss = 0
-            for data in self.data_loader:  # (prev_traj, traj, states, values) 
-                prev_traj, traj, states, values = data
+            for data in self.data_loader:  #  states, values) 
+                prev_traj, traj = next(iter(self.traj_data_loader))
+                states, values = data
+                
                 prev_traj = prev_traj.to(self.device)
                 traj = traj.to(self.device)
                 states = states.to(self.device)
@@ -123,14 +128,15 @@ class LiliTrainer(object):
                 state_inputs = Variable(states)
                 traj_inputs = Variable(prev_traj) # previous traj
                 values = Variable(values)
-
+                # logging.info(f'Check optim_epoch: state_inputs: {state_inputs.shape}, traj_inputs: {traj_inputs.shape}')
                 self.Q_optimizer.zero_grad()
                 self.enc_optimizer.zero_grad()
                 self.dec_optimizer.zero_grad()
-                Q_hat, traj_hat = self.model(state_inputs.to(self.device), traj_inputs.to(self.device))
-                Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values)
-                rep_loss = 0.05* self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
-                           + self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
+                min_size = min(state_inputs.shape[0], traj_inputs.shape[0])
+                Q_hat, traj_hat = self.model(state_inputs[:min_size, :, :].to(self.device), traj_inputs[:min_size, :, :].to(self.device))
+                Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values[:min_size])
+                rep_loss = 0.05* self.rep_criterion(traj_hat[:min_size,:-self.model.hist], target_traj[:min_size,:-self.model.hist]) \
+                           + self.rep_criterion(traj_hat[:min_size,-self.model.hist:], target_traj[:min_size,-self.model.hist:])
                 # print(f'Q_loss: {Q_loss}')
                 # print(f'Rep Loss: {rep_loss}')
                 Q_loss.backward(retain_graph=True)
@@ -157,7 +163,9 @@ class LiliTrainer(object):
         Q_losses = 0
         rep_losses = 0
         for _ in tqdm(range(num_batches)):
-            prev_traj, traj, states, values = next(iter(self.data_loader))
+            prev_traj, traj = prev_traj, traj = next(iter(self.traj_data_loader))
+            states, values = next(iter(self.data_loader))
+
             prev_traj.to(self.device)
             prev_traj = prev_traj.to(self.device)
             traj = traj.to(self.device)
@@ -179,11 +187,12 @@ class LiliTrainer(object):
             self.Q_optimizer.zero_grad()
             self.enc_optimizer.zero_grad()
             self.dec_optimizer.zero_grad()
-            Q_hat, traj_hat = self.model(state_inputs, traj_inputs)
-            Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values)
-            rep_loss = 0.05* self.rep_criterion(traj_hat[:,:-self.model.hist], target_traj[:,:-self.model.hist]) \
-                    + self.rep_criterion(traj_hat[:,-self.model.hist:], target_traj[:,-self.model.hist:])
-                
+            min_size = min(state_inputs.shape[0], traj_inputs.shape[0])
+            Q_hat, traj_hat = self.model(state_inputs[:min_size, :, :].to(self.device), traj_inputs[:min_size, :, :].to(self.device))
+            Q_loss = self.Q_criterion(torch.amax(Q_hat,-1).unsqueeze(-1), values[:min_size])
+            rep_loss = 0.05* self.rep_criterion(traj_hat[:min_size,:-self.model.hist], target_traj[:min_size,:-self.model.hist]) \
+                           + self.rep_criterion(traj_hat[:min_size,-self.model.hist:], target_traj[:min_size,-self.model.hist:])
+               
             Q_loss.backward(retain_graph=True)
             rep_loss.backward()
            

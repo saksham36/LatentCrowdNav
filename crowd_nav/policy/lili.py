@@ -87,6 +87,7 @@ class VNetwork(nn.Module):
         
         latent_rep = self.encoder(torch.reshape(prev_traj_input, (prev_traj_input.shape[0],-1)))
         # concatenate agent's state with global weighted humans' state
+        # import pdb; pdb.set_trace()
         if not self.lili_flag:
             joint_state = torch.cat([self_state, weighted_feature, latent_rep], dim=1)
         else:
