@@ -57,7 +57,6 @@ class VNetwork(nn.Module):
         """
         size = state.shape
         self_state = state[:, 0, :self.self_state_dim]
-        import pdb; pdb.set_trace()
         if not self.lili_flag:
             phi_e_output = self.phi_e(state.view((-1, size[2])))
             psi_h_output = self.psi_h(phi_e_output)

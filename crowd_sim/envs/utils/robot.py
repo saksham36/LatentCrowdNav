@@ -10,7 +10,7 @@ class Robot(Agent):
         if self.policy is None:
             raise AttributeError('Policy attribute has to be set!')
         state = JointState(self.get_full_state(), ob)
-        if self.policy.name == 'LiliSARL':
+        if self.policy.name in ('LiliSARL', 'Lili', 'LiliSARL2'):
             action = self.policy.predict(state, traj)
         else:
             action = self.policy.predict(state)
