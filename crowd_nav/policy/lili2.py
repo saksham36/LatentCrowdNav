@@ -161,7 +161,7 @@ class LiliSARL2(MultiHumanRL):
             prev_traj = torch.zeros(rotated_batch_input.shape[0], self.hist, rotated_batch_input.shape[1] * rotated_batch_input.shape[2] +2 + 2, device=self.device)
         
         prev_traj = prev_traj.to(self.device)
-        if self.phase == "val" or self.phase == "test":
+        if self.phase in( "val","test", "train_val"):
             self.model.eval()
         else:
             self.model.train()

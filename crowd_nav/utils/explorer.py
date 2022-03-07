@@ -174,11 +174,10 @@ class LiliExplorer(object):
             dones  = []
             while not done:
                 if self.robot.policy.name in ('LiliSARL', 'Lili', 'LiliSARL2'):
-                    # try:
-                    action = self.robot.act(ob, self.prev_traj.unsqueeze(0))
-                    # except Exception as e:
-                    #     print(e)
-                    #     import pdb; pdb.set_trace()
+                    if self.prev_traj is None:
+                        action = self.robot.act(ob, self.prev_traj)
+                    else:
+                        action = self.robot.act(ob, self.prev_traj.unsqueeze(0))
                 else:
                     action = self.robot.act(ob)
                 ob, reward, done, info = self.env.step(action)
@@ -270,7 +269,20 @@ class LiliExplorer(object):
                                     torch.Tensor([expanded_rewards[idx]], device='cpu'),
                                     torch.Tensor([1 if expanded_dones[idx] == True else 0], device='cpu')], dim=-1) \
                                  for idx in range(self.expanded_state_size)])
-                           
+        elif isinstance(traj, tuple):
+            expanded_states = states + [states[-1] for _ in range(self.expanded_state_size - len(states))]
+
+            expanded_rewards = rewards + [0 for _ in range(self.expanded_state_size - len(states))]
+
+            expanded_actions = actions + [self.term_action for _ in range(self.expanded_state_size - len(states))]
+
+            expanded_dones = dones+ [True for _ in range(self.expanded_state_size - len(states))]
+            traj = torch.stack([torch.cat([torch.flatten((expanded_states[idx]).to('cpu'),start_dim=0), 
+                                    torch.Tensor(expanded_actions[idx], device='cpu'), 
+                                    torch.Tensor([expanded_rewards[idx]], device='cpu'),
+                                    torch.Tensor([1 if expanded_dones[idx] == True else 0], device='cpu')], dim=-1) \
+                                 for idx in range(self.expanded_state_size)])
+
         for i, state in enumerate(states):
             reward = rewards[i]
             done = dones[i]

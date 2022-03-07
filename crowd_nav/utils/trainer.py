@@ -6,6 +6,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import torch
 from tqdm import tqdm
+import random
 
 class Trainer(object):
     def __init__(self, model, memory, device, batch_size):
@@ -170,24 +171,11 @@ class LiliTrainer(object):
             self.traj_data_loader = DataLoader(self.traj_memory, self.batch_size, shuffle=True, drop_last = True) 
         Q_losses = 0
         rep_losses = 0
-        logging.info('Experience set size: %d/%d', len(self.memory), self.memory.capacity)
-        logging.info('Traj Buffer set size: %d/%d', len(self.traj_memory), self.traj_memory.capacity)
-        # import pdb; pdb.set_trace()
         for idx in tqdm(range(num_batches)):
-            c_idx = 0
-            while(True):
-                try:
-                    prev_traj, traj = next(iter(self.traj_data_loader))
-                    break
-                except Exception as e:
-                    # print(e)
-                    c_idx += 1
-                    # print(50*"*")
-                    # print(f'Idx: {idx}')
-                    # print(f'C_Idx: {c_idx}')
+            prev_traj, traj = next(iter(self.traj_data_loader))
+            
             states, values = next(iter(self.data_loader))
 
-            prev_traj.to(self.device)
             prev_traj = prev_traj.to(self.device)
             traj = traj.to(self.device)
             states = states.to(self.device)
