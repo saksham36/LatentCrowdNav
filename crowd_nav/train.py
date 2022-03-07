@@ -164,9 +164,9 @@ def main():
         # sample k episodes into memory and optimize over the generated memory
         logging.info('Sample k episodes for RL')
         explorer.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode)
-        logging.info('Begin optimizing batch')
+        # logging.info('Begin optimizing batch')
         trainer.optimize_batch(train_batches)
-        logging.info('Finished optimizing batch')
+        # logging.info('Finished optimizing batch')
         episode += 1
 
         if episode % target_update_interval == 0:
