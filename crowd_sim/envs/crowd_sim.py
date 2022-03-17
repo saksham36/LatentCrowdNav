@@ -206,7 +206,7 @@ class CrowdSim(gym.Env):
             if self.latent_intent:
                 if np.random.random() <= self.latent_prob:
                     gx =  -abs(gx),
-                    py = -abs(gy)
+                    gy = -abs(gy)
             collide = False
             for agent in [self.robot] + self.humans:
                 if norm((gx - agent.gx, gy - agent.gy)) < human.radius + agent.radius + self.discomfort_dist:
